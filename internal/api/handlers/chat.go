@@ -10,35 +10,14 @@ import (
 
 	"github.com/geslan/ourlife-backend/internal/models"
 	"github.com/geslan/ourlife-backend/internal/repository"
+	"github.com/geslan/ourlife-backend/internal/websocket"
 )
-
-var (
-	chatRepo       repository.ChatRepository
-	messageRepo    repository.MessageRepository
-	transactionRepo repository.TransactionRepository
-	walletRepo     repository.WalletRepository
-	membershipRepo repository.MembershipRepository
-)
-
-func InitChatHandlers() {
-	chatRepo = repository.NewChatRepository()
-	messageRepo = repository.NewMessageRepository()
-}
-
-func InitWalletHandlers() {
-	transactionRepo = repository.NewTransactionRepository()
-	walletRepo = repository.NewWalletRepository()
-}
-
-func InitMembershipHandlers() {
-	membershipRepo = repository.NewMembershipRepository()
-}
 
 // ListChats 聊天列表
 func ListChats(c *gin.Context) {
 	userID := c.GetString("userId")
 
-	chats, err := chatRepo.FindByUserID(userID)
+	chats, err := repository.NewChatRepository().FindByUserID(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -64,7 +43,7 @@ func GetMessages(c *gin.Context) {
 		}
 	}
 
-	messages, err := messageRepo.FindByChatID(chatID, limit, offset)
+	messages, err := repository.NewMessageRepository().FindByChatID(chatID, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -100,123 +79,41 @@ func SendMessage(c *gin.Context) {
 		CreatedAt: time.Now(),
 	}
 
-	if err := messageRepo.Create(message); err != nil {
+	if err := repository.NewMessageRepository().Create(message); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 通过 WebSocket 广播消息
+	websocket.SendMessageToChat(chatID, gin.H{
+		"id":         message.ID,
+		"chatId":     chatID,
+		"senderId":   userID,
+		"senderType": "user",
+		"content":    req.Content,
+		"type":       req.Type,
+		"createdAt":  time.Now().Format(time.RFC3339),
+	})
 
 	c.JSON(http.StatusCreated, message)
 }
 
-// WebSocketHandler WebSocket 端点（待实现）
+// WebSocketHandler WebSocket 端点
 func WebSocketHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "not_implemented",
-		"message": "WebSocket 功能将在 Phase 2 实现",
-	})
+	websocket.HandleWebSocket(c)
 }
 
-// GetBalance 获取 Token 余额
-func GetBalance(c *gin.Context) {
-	userID := c.GetString("userId")
-
-	balance, err := walletRepo.GetBalance(userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"balance": balance})
+// BroadcastTypingStatus 广播打字状态（供 Handlers 使用）
+func BroadcastTypingStatus(chatID, userID string, isTyping bool) {
+	websocket.SendTypingStatus(chatID, userID, isTyping)
 }
 
-// GetTransactions 获取交易记录
-func GetTransactions(c *gin.Context) {
-	userID := c.GetString("userId")
-	limit := 20
-	offset := 0
-
-	if l, ok := c.GetQuery("limit"); ok {
-		if val, err := strconv.Atoi(l); err == nil {
-			limit = val
-		}
-	}
-	if o, ok := c.GetQuery("offset"); ok {
-		if val, err := strconv.Atoi(o); err == nil {
-			offset = val
-		}
-	}
-
-	transactions, err := transactionRepo.FindByUserID(userID, limit, offset)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"transactions": transactions})
+// BroadcastMessage 广播消息（供 Handlers 使用）
+func BroadcastMessage(event string, data interface{}) {
+	websocket.BroadcastMessage(event, data)
 }
 
-// Topup 充值（待实现）
-func Topup(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "not_implemented",
-		"message": "充值功能将在 Phase 3 实现",
-	})
-}
-
-// GetMembershipStatus 获取会员状态
-func GetMembershipStatus(c *gin.Context) {
-	userID := c.GetString("userId")
-
-	status, err := membershipRepo.GetStatus(userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, status)
-}
-
-// GetMembershipPlans 获取会员方案
-func GetMembershipPlans(c *gin.Context) {
-	plans := []gin.H{
-		{
-			"id":       "monthly",
-			"name":     "Monthly",
-			"price":    12,
-			"currency": "USD",
-			"savings":  0,
-		},
-		{
-			"id":       "quarterly",
-			"name":     "Quarterly",
-			"price":    29,
-			"currency": "USD",
-			"savings":  19,
-		},
-		{
-			"id":       "yearly",
-			"name":     "Yearly",
-			"price":    79,
-			"currency": "USD",
-			"savings":  45,
-		},
-	}
-
-	c.JSON(http.StatusOK, gin.H{"plans": plans})
-}
-
-// Subscribe 开通会员（待实现）
-func Subscribe(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "not_implemented",
-		"message": "会员订阅功能将在 Phase 3 实现",
-	})
-}
-
-// CancelSubscription 取消订阅（待实现）
-func CancelSubscription(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "not_implemented",
-		"message": "取消订阅功能将在 Phase 3 实现",
-	})
+// BroadcastToChat 广播消息到特定聊天室（供 Handlers 使用）
+func BroadcastToChat(chatID string, event string, data interface{}) {
+	websocket.BroadcastToChat(chatID, event, data)
 }

@@ -2,21 +2,20 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
+	"github.com/geslan/ourlife-backend/internal/repository"
 	"github.com/geslan/ourlife-backend/internal/services"
+	"github.com/geslan/ourlife-backend/internal/websocket"
 )
-
-var aiService *services.AIService
-
-func InitAIHandlers(baseURL string) {
-	aiService = services.NewAIService(baseURL)
-}
 
 // AIGenerate 生成 AI 回复
 func AIGenerate(c *gin.Context) {
 	userID := c.GetString("userId")
+	chatID := c.Query("chatId")
 
 	var req struct {
 		Message     string `json:"message" binding:"required"`
@@ -29,7 +28,7 @@ func AIGenerate(c *gin.Context) {
 	}
 
 	// 获取角色配置
-	character, err := characterRepo.FindByID(req.CharacterID)
+	character, err := repository.NewCharacterRepository().FindByID(req.CharacterID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Character not found"})
 		return
@@ -55,10 +54,27 @@ func AIGenerate(c *gin.Context) {
 	}
 
 	// 调用 AI 服务
-	resp, err := aiService.GenerateResponse(aiReq)
+	resp, err := services.NewAIService("http://localhost:8000").GenerateResponse(aiReq)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	// 如果提供了 ChatID，通过 WebSocket 广播消息
+	if chatID != "" {
+		message := map[string]interface{}{
+			"id":          uuid.New().String(),
+			"chatId":      chatID,
+			"senderId":    req.CharacterID,
+			"senderType":  "character",
+			"content":     resp.Content,
+			"type":        resp.Type,
+			"a2uiData":    resp.A2UIData,
+			"tokenCost":   0,
+			"createdAt":   time.Now().Format(time.RFC3339),
+		}
+
+		websocket.SendMessageToChat(chatID, message)
 	}
 
 	c.JSON(http.StatusOK, resp)

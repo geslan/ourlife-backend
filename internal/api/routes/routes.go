@@ -5,9 +5,13 @@ import (
 
 	"github.com/geslan/ourlife-backend/internal/api/handlers"
 	"github.com/geslan/ourlife-backend/internal/api/middleware"
+	"github.com/geslan/ourlife-backend/internal/websocket"
 )
 
 func SetupRoutes(r *gin.Engine) {
+	// 初始化 WebSocket Hub
+	websocket.InitWebSocket()
+
 	// Public routes
 	public := r.Group("/api")
 	{
@@ -81,5 +85,5 @@ func SetupRoutes(r *gin.Engine) {
 	}
 
 	// WebSocket endpoint
-	r.GET("/ws/chat", handlers.WebSocketHandler)
+	r.GET("/ws/chat", websocket.HandleWebSocket)
 }

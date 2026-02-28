@@ -10,12 +10,6 @@ import (
 	"github.com/geslan/ourlife-backend/internal/repository"
 )
 
-var characterRepo repository.CharacterRepository
-
-func InitCharacterHandlers() {
-	characterRepo = repository.NewCharacterRepository()
-}
-
 // ListCharacters 角色列表
 func ListCharacters(c *gin.Context) {
 	limit := 20
@@ -32,7 +26,7 @@ func ListCharacters(c *gin.Context) {
 		}
 	}
 
-	characters, err := characterRepo.List(limit, offset)
+	characters, err := repository.NewCharacterRepository().List(limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -49,7 +43,7 @@ func ListCharacters(c *gin.Context) {
 func GetCharacter(c *gin.Context) {
 	id := c.Param("id")
 
-	character, err := characterRepo.FindByID(id)
+	character, err := repository.NewCharacterRepository().FindByID(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Character not found"})
 		return
@@ -68,10 +62,10 @@ func CreateCharacter(c *gin.Context) {
 		Avatar       string   `json:"avatar"`
 		Banner       string   `json:"banner"`
 		Bio          string   `json:"bio"`
-		Personality  []string `json:"personality"`
+		Personality  []string  `json:"personality"`
 		Relationship string   `json:"relationship"`
 		Profession   string   `json:"profession"`
-		Interests    []string `json:"interests"`
+		Interests    []string  `json:"interests"`
 		Voice        string   `json:"voice"`
 		Style        string   `json:"style"`
 		Gender       string   `json:"gender"`
@@ -99,7 +93,7 @@ func CreateCharacter(c *gin.Context) {
 		IsOfficial:   false,
 	}
 
-	if err := characterRepo.Create(character); err != nil {
+	if err := repository.NewCharacterRepository().Create(character); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -112,7 +106,7 @@ func UpdateCharacter(c *gin.Context) {
 	userID := c.GetString("userId")
 	id := c.Param("id")
 
-	character, err := characterRepo.FindByID(id)
+	character, err := repository.NewCharacterRepository().FindByID(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Character not found"})
 		return
@@ -125,16 +119,16 @@ func UpdateCharacter(c *gin.Context) {
 	}
 
 	var req struct {
-		Name         *string   `json:"name"`
-		Age          *int      `json:"age"`
-		Avatar       *string   `json:"avatar"`
-		Banner       *string   `json:"banner"`
-		Bio          *string   `json:"bio"`
-		Personality  []string  `json:"personality"`
-		Relationship *string   `json:"relationship"`
-		Profession   *string   `json:"profession"`
-		Interests    []string  `json:"interests"`
-		Voice        *string   `json:"voice"`
+		Name         *string  `json:"name"`
+		Age          *int     `json:"age"`
+		Avatar       *string  `json:"avatar"`
+		Banner       *string  `json:"banner"`
+		Bio          *string  `json:"bio"`
+		Personality  []string `json:"personality"`
+		Relationship *string  `json:"relationship"`
+		Profession   *string  `json:"profession"`
+		Interests    []string `json:"interests"`
+		Voice        *string  `json:"voice"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -174,7 +168,7 @@ func UpdateCharacter(c *gin.Context) {
 		character.Voice = *req.Voice
 	}
 
-	if err := characterRepo.Update(character); err != nil {
+	if err := repository.NewCharacterRepository().Update(character); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -187,7 +181,7 @@ func DeleteCharacter(c *gin.Context) {
 	userID := c.GetString("userId")
 	id := c.Param("id")
 
-	character, err := characterRepo.FindByID(id)
+	character, err := repository.NewCharacterRepository().FindByID(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Character not found"})
 		return
@@ -199,7 +193,7 @@ func DeleteCharacter(c *gin.Context) {
 		return
 	}
 
-	if err := characterRepo.Delete(id); err != nil {
+	if err := repository.NewCharacterRepository().Delete(id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -211,7 +205,7 @@ func DeleteCharacter(c *gin.Context) {
 func GetMyCharacters(c *gin.Context) {
 	userID := c.GetString("userId")
 
-	characters, err := characterRepo.FindByUserID(userID)
+	characters, err := repository.NewCharacterRepository().FindByUserID(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

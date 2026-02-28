@@ -10,12 +10,6 @@ import (
 	"github.com/geslan/ourlife-backend/pkg/jwt"
 )
 
-var userRepo repository.UserRepository
-
-func InitAuthHandlers() {
-	userRepo = repository.NewUserRepository()
-}
-
 // Register 用户注册
 func Register(c *gin.Context) {
 	var req struct {
@@ -31,7 +25,7 @@ func Register(c *gin.Context) {
 	}
 
 	// 检查用户是否已存在
-	_, err := userRepo.FindByTelegramID(req.TelegramID)
+	_, err := repository.NewUserRepository().FindByTelegramID(req.TelegramID)
 	if err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
 		return
@@ -47,7 +41,7 @@ func Register(c *gin.Context) {
 		TokenBalance: 0,
 	}
 
-	if err := userRepo.Create(user); err != nil {
+	if err := repository.NewUserRepository().Create(user); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -77,8 +71,7 @@ func Login(c *gin.Context) {
 	}
 
 	// 查找用户（简化版本，实际应该验证密码）
-	// 这里暂时使用 username 作为 telegramID 的占位
-	user, err := userRepo.FindByTelegramID(0)
+	user, err := repository.NewUserRepository().FindByTelegramID(0)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
@@ -112,7 +105,7 @@ func TelegramWebApp(c *gin.Context) {
 	}
 
 	// 查找或创建用户
-	user, err := userRepo.FindByTelegramID(req.TelegramID)
+	user, err := repository.NewUserRepository().FindByTelegramID(req.TelegramID)
 	if err != nil {
 		// 创建新用户
 		user = &models.User{
@@ -123,7 +116,7 @@ func TelegramWebApp(c *gin.Context) {
 			Membership:   string(models.RoleUser),
 			TokenBalance: 0,
 		}
-		if err := userRepo.Create(user); err != nil {
+		if err := repository.NewUserRepository().Create(user); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -146,7 +139,7 @@ func TelegramWebApp(c *gin.Context) {
 func GetCurrentUser(c *gin.Context) {
 	userID := c.GetString("userId")
 
-	user, err := userRepo.FindByID(userID)
+	user, err := repository.NewUserRepository().FindByID(userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
