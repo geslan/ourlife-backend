@@ -55,3 +55,10 @@ const (
 	MessageTypeA2UI  MessageType = "a2ui"
 	MessageTypeImage MessageType = "image"
 )
+
+type SenderType string
+
+const (
+	SenderTypeUser      SenderType = "user"
+	SenderTypeCharacter SenderType = "character"
+)
