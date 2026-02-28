@@ -41,6 +41,14 @@ func SetupRoutes(r *gin.Engine) {
 			user.GET("/me", handlers.GetCurrentUser)
 		}
 
+		// Online status routes
+		online := protected.Group("/online")
+		{
+			online.POST("/set-online", handlers.SetOnline)
+			online.POST("/set-offline", handlers.SetOffline)
+			online.GET("/users", handlers.GetOnlineUsers)
+		}
+
 		// Character management
 		characters := protected.Group("/characters")
 		{
